@@ -1,9 +1,9 @@
-export type Game = {
+export type GameDetails = {
   total_kills: number;
   players: string[];
   kills: Record<string, number>;
 };
 
 export class LogParserResponseDto {
-  [key: string]: Game;
+  [key: string]: GameDetails;
 }
