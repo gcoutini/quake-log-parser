@@ -13,6 +13,7 @@ import { LogsService } from './logs.service';
 import { InvalidFileException } from 'src/common/exceptions/invalid-file.exception';
 import { RankingResponseDto } from './dto/ranking-response.dto';
 import { checkFileFormat } from 'src/helpers/checkFileFormat';
+import { DeathMeansResponseDto } from './dto/death-means-response.dto';
 
 @ApiTags('logs')
 @Controller({
@@ -43,7 +44,7 @@ export class LogsController {
   }
 
   @ApiCreatedResponse({
-    status: 200,
+    status: 201,
     description: 'Ranking dos jogadores por kills',
   })
   @ApiUnprocessableEntityResponse({
@@ -60,5 +61,25 @@ export class LogsController {
       throw new InvalidFileException('Arquivo inválido. Somente logs do Quake (.log) são aceitos.');
     }
     return this.logsService.getRanking(file);
+  }
+
+  @ApiCreatedResponse({
+    status: 201,
+    description: 'Parser de arquivo de log do Quake',
+  })
+  @ApiUnprocessableEntityResponse({
+    status: 422,
+    description: 'Formato de arquivo inválido',
+  })
+  @Post('/death-means')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation(fileApiOperation)
+  @ApiConsumes('multipart/form-data')
+  getDeathMeans(@UploadedFile() file: Express.Multer.File): DeathMeansResponseDto {
+    const isValidFile = checkFileFormat(file.originalname);
+    if (!isValidFile) {
+      throw new InvalidFileException('Arquivo inválido. Somente logs do Quake (.log) são aceitos.');
+    }
+    return this.logsService.getDeathMeans(file);
   }
 }
