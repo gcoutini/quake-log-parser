@@ -4,6 +4,7 @@ import { KillData } from './types/kill-data.type';
 import { Command } from './enums/command.enum';
 import { RankingResponseDto } from './dto/ranking-response.dto';
 import { Game } from './interfaces/game.interface';
+import { DeathMeansResponseDto } from './dto/death-means-response.dto';
 
 @Injectable()
 export class LogsService {
@@ -18,6 +19,7 @@ export class LogsService {
 
     for (const line of lines) {
       const input = this.getInput(line);
+      if (!input) continue;
       if (input === Command.START_GAME) {
         this.getNewGame();
       }
@@ -40,15 +42,39 @@ export class LogsService {
     const lines = fileContent.split('\n');
     for (const line of lines) {
       const input = this.getInput(line);
-      if (input === Command.KILL) {
-        const killData = this.getKillData(line);
-        const { killer } = killData;
-        if (killer === '<world>') continue;
-        ranking[killer] ? ranking[killer]++ : (ranking[killer] = 1);
-      }
+      if (input !== Command.KILL) continue;
+      const killData = this.getKillData(line);
+      const { killer } = killData;
+      if (killer === '<world>') continue;
+      ranking[killer] ? ranking[killer]++ : (ranking[killer] = 1);
     }
     const sortedRanking = Object.entries(ranking).sort(([, a], [, b]) => b - a);
     return Object.fromEntries(sortedRanking);
+  }
+
+  getDeathMeans(file: Express.Multer.File): DeathMeansResponseDto {
+    const deathMeans: DeathMeansResponseDto = {};
+    const fileContent = file.buffer.toString('utf-8');
+    const lines = fileContent.split('\n');
+    for (const line of lines) {
+      const input = this.getInput(line);
+      if (input === Command.START_GAME) {
+        if (this.currentGame) {
+          deathMeans[`game_${this.gameIndex}`] = {
+            kills_by_means: this.currentGame.getKillsByMeans(),
+          };
+          this.gameIndex++;
+        }
+        this.currentGame = new Game();
+        continue;
+      }
+      if (input === Command.KILL) {
+        const killData = this.getKillData(line);
+        const { meanOfDeath } = killData;
+        this.currentGame.setKillByMean(meanOfDeath);
+      }
+    }
+    return deathMeans;
   }
 
   private getInput(line: string): Command | null {
@@ -61,14 +87,9 @@ export class LogsService {
   }
 
   private getKillData(line: string): KillData {
-    try {
-      const regex = /\s*(\d{1,2}:\d{2}) Kill: \d+ \d+ \d+: (.+?) killed (.+?) by .+/;
-      const players = line.match(regex);
-      return { killer: players[2], killed: players[3] };
-    } catch (e) {
-      this.logger.error(`Erro ao extrair dados do kill: ${line}`);
-      return { killer: '', killed: '' };
-    }
+    const regex = /\d{1,2}:\d{2} Kill: \d+ \d+ \d+: (.+?) killed (.+?) by (.+)/;
+    const killData = line.match(regex);
+    return { killer: killData[1], killed: killData[2], meanOfDeath: killData[3] };
   }
 
   private getPlayerName(line: string): string | null {
@@ -90,6 +111,7 @@ export class LogsService {
         total_kills: this.currentGame.getTotalKills(),
         players: this.currentGame.getPlayers(),
         kills,
+        kills_by_means: this.currentGame.getKillsByMeans(),
       };
       this.games[`game_${this.gameIndex}`] = finishedGame;
       this.gameIndex++;
