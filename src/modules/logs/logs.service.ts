@@ -1,51 +1,35 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Game, LogParserResponseDto } from './dto/parser-response.dto';
+import { LogParserResponseDto } from './dto/parser-response.dto';
 import { KillData } from './types/kill-data.type';
 import { Command } from './enums/command.enum';
 import { RankingResponseDto } from './dto/ranking-response.dto';
+import { Game } from './interfaces/game.interface';
 
 @Injectable()
 export class LogsService {
   private readonly logger = new Logger(LogsService.name);
+  private currentGame: Game = null;
   private games: LogParserResponseDto = {};
+  private gameIndex = 1;
 
   parse(file: Express.Multer.File): LogParserResponseDto {
     const fileContent = file.buffer.toString('utf-8');
     const lines = fileContent.split('\n');
 
-    let currentGame: Game = null;
-    let gameIndex = 1;
-
     for (const line of lines) {
       const input = this.getInput(line);
       if (input === Command.START_GAME) {
-        if (currentGame) {
-          this.games[`game_${gameIndex}`] = currentGame;
-          gameIndex++;
-        }
-        currentGame = { total_kills: 0, players: [], kills: {} };
+        this.getNewGame();
       }
-      if (input === Command.PLAYER_JOIN && currentGame) {
+      if (input === Command.PLAYER_JOIN) {
         const playerName = this.getPlayerName(line);
-        if (!currentGame.players.includes(playerName)) {
-          currentGame.players.push(playerName);
-          currentGame.kills[playerName] = 0;
-        }
+        this.currentGame.addPlayer(playerName);
       }
-      if (input === Command.KILL && currentGame) {
-        currentGame.total_kills++;
+      if (input === Command.KILL) {
+        this.currentGame.increaseTotalKills();
         const killData = this.getKillData(line);
-        const { killer, killed } = killData;
-        if (killer === '<world>') {
-          currentGame.kills[killed] = currentGame.kills[killed]--;
-        } else {
-          currentGame.kills[killer]++;
-        }
+        this.currentGame.handleKill(killData);
       }
-    }
-
-    if (currentGame) {
-      this.games[`game_${gameIndex}`] = currentGame;
     }
     return this.games;
   }
@@ -90,5 +74,26 @@ export class LogsService {
   private getPlayerName(line: string): string | null {
     const regex = /n\\([^\\]+)/;
     return line.match(regex)[1];
+  }
+
+  private getNewGame(): void {
+    if (this.currentGame) {
+      const kills: Record<string, number> = {};
+      const players = this.currentGame.getPlayers();
+      for (const player of players) {
+        const playerData = this.currentGame.getPlayer(player);
+        if (playerData) {
+          kills[player] = playerData.getKills();
+        }
+      }
+      const finishedGame = {
+        total_kills: this.currentGame.getTotalKills(),
+        players: this.currentGame.getPlayers(),
+        kills,
+      };
+      this.games[`game_${this.gameIndex}`] = finishedGame;
+      this.gameIndex++;
+    }
+    this.currentGame = new Game();
   }
 }
