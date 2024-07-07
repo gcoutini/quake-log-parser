@@ -30,7 +30,8 @@ Após iniciar a aplicação, acesse a documentação:
 http://localhost:3000/doc
 ```
 
-Através do swagger, você pode verificar as rotas disponíveis e testar a aplicação
+Através do swagger, você pode verificar as rotas disponíveis e testar a aplicação.
+Arquivo de exemplo: [data/example.log](./data/example.log)
 
 ## Autor
 
