@@ -4,6 +4,9 @@
 - The Quake Log Parser is a tool designed to parse and analyze logs from Quake 3 Arena Server. It provides detailed insights into server activities, such as client connections, scores, match events and items used.
 
 ### Key Features
+- <b>Log Parsing: </b> Extract match information as needed, in a friendly way.
+- <b>Ranking Generator: </b> Find out the high-scoring players from the analyzed logs
+- <b>Means of Death: </b> Extract data about players' deaths, such as weapons used or environmental event.
 
 ### Requirements
 
